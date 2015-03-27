@@ -1,48 +1,11 @@
 import serial
 
-class RetroNintendoController(object):
-	def __init__(self, port, bit_count):
-		self.port = port
-
-		self.bit_count = bit_count
-
-		self.buttons = { 0: [False] * self.bit_count }
-
-		print(self.port)
-
-	def enable(self):
-		self.serial = serial.Serial(self.port, 115200)
-
-	def disable(self):
-		self.serial.close()
-
-	def button_down(self, button, controller=0):
-		self.buttons[controller][button] = True
-	def button_up(self, button, controller=0):
-		self.buttons[controller][button] = False
-	def button(self, button, down, controller=0):
-		# if down != self.buttons[controller][button]:
-		# 	print('button({}, {}, {})'.format(button, down, controller))
-		if down:
-			self.button_down(button, controller)
-		else:
-			self.button_up(button, controller)
-
-		val = 0
-		for x in range(len(self.buttons[controller])):
-			val |= 1 if self.buttons[controller][x] else 0
-			val <<= 1
-		val >>= 1
-		val = bytearray([controller & 0xFF, (val >> 8) & 0xFF, val & 0xFF])
-		print(repr(val))
-		self.serial.write(val)
-
 
 # class NesController(RetroNintendoController):
 # 	def __init__(self, port):
 # 		super(NesController, self).__init__(port, 8)
 
-class SnesController(RetroNintendoController):
+class SnesController:
 	BUTTON_B = 0
 	BUTTON_Y = 1
 	BUTTON_SELECT = 2
@@ -57,8 +20,6 @@ class SnesController(RetroNintendoController):
 	BUTTON_R = 11
 
 	BIT_COUNT = 16
-	def __init__(self, port):
-		super(SnesController, self).__init__(port, 16)
 
 class SnesControllerMux:
 	def __init__(self, port):
@@ -66,6 +27,7 @@ class SnesControllerMux:
 
 		self.port = port
 		self.multitap = False
+		self.serial = None
 
 	def enable(self):
 		self.serial = serial.Serial(self.port, 115200)
@@ -88,9 +50,28 @@ class SnesControllerMux:
 			val |= 1 if self.buttons[controller_id][x] else 0
 			val <<= 1
 		val >>= 1
-		val = bytearray([controller_id & 0xFF, (val >> 8) & 0xFF, val & 0xFF])
-		print(repr(val))
+		self.write(controller_id, val >> 8, val)
+		# val = bytearray([controller_id & 0xFF, (val >> 8) & 0xFF, val & 0xFF])
+		# print(repr(val))
+		# self.serial.write(val)
+
+	def is_button(self, controller_id, button_id):
+		if not controller_id in self.buttons:
+			return False
+		if not button_id in self.buttons[controller_id]:
+			return False
+		return self.buttons[controller_id][button_id]
+
+	def write(self, command, h, l):
+		if not self.serial or not self.serial.isOpen():
+			return
+		val = bytearray([command & 0xFF, h & 0xFF, l & 0xFF])
+		# print(repr(val))
 		self.serial.write(val)
+
+	def toggle_multitap(self):
+		self.multitap = not self.multitap
+		self.write(0xFF, 0, 1 if self.multitap else 0)
 
 if __name__ == '__main__':
 	#test = SnesMultitap(10, 9, 11, 25, 8)
