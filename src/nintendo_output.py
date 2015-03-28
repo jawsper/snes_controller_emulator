@@ -34,10 +34,7 @@ class SnesControllerMux:
 	def disable(self):
 		self.serial.close()
 
-	controller_add = 0
 	def button(self, controller_id, button_id, value):
-		controller_id += self.controller_add
-
 		if not controller_id in self.buttons:
 			self.buttons[controller_id] = [False] * SnesController.BIT_COUNT
 
@@ -51,9 +48,6 @@ class SnesControllerMux:
 			val <<= 1
 		val >>= 1
 		self.write(controller_id, val >> 8, val)
-		# val = bytearray([controller_id & 0xFF, (val >> 8) & 0xFF, val & 0xFF])
-		# print(repr(val))
-		# self.serial.write(val)
 
 	def is_button(self, controller_id, button_id):
 		if not controller_id in self.buttons:
@@ -63,11 +57,10 @@ class SnesControllerMux:
 		return self.buttons[controller_id][button_id]
 
 	def write(self, command, h, l):
-		if not self.serial or not self.serial.isOpen():
-			return
 		val = bytearray([command & 0xFF, h & 0xFF, l & 0xFF])
-		# print(repr(val))
-		self.serial.write(val)
+		print(repr(val))
+		if self.serial and self.serial.isOpen():
+			self.serial.write(val)
 
 	def toggle_multitap(self):
 		self.multitap = not self.multitap
