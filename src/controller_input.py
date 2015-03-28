@@ -2,6 +2,8 @@ from __future__ import print_function
 
 import os
 import pygame
+# import pyudev
+import subprocess
 
 from nintendo_output import SnesController
 
@@ -19,8 +21,12 @@ class InputDevice:
 	axis_map = {}
 	hat_map = {}
 
+	special_button_down = False
+	special_button_released = False
+
 	def __init__(self, device_number, joystick, output):
 		self.device_number = device_number
+		self.player_number = device_number + 1
 		self.joystick = joystick
 		self.output = output
 	def get_dpad(self):
@@ -33,6 +39,8 @@ class InputDevice:
 
 	def event(self, ev):
 		if ev.type == pygame.JOYAXISMOTION:
+			if self.special_button_down:
+				return
 			if ev.axis in self.axis_map:
 				val = self.joystick.get_axis(ev.axis)
 				neg, pos = self.axis_map[ev.axis]
@@ -55,6 +63,8 @@ class InputDevice:
 					self.special_button_released = not down
 				elif self.special_button_down:
 					self.special_button(-1, True)
+				elif self.special_button_released:
+					self.special_button_released = False
 				elif not self.special_button_released:
 					self.button(button, down)
 			# else:
@@ -64,6 +74,11 @@ class InputDevice:
 			# elif ev.type == pygame.JOYBUTTONUP:
 			# 	print('JOYBUTTONUP: {} {}'.format(ev.joy, ev.button))
 		elif ev.type == pygame.JOYHATMOTION:
+			if self.special_button_down:
+				return
+			if self.special_button_released:
+				self.special_button_released = False
+				return
 			# print('JOYHATMOTION: {} {}: {}'.format(ev.joy, ev.hat, (x, y)))
 			if ev.hat in self.hat_map:
 				x, y = self.joystick.get_hat(ev.hat)
@@ -78,9 +93,9 @@ class InputDevice:
 				dpad = self.get_dpad()
 				# UDLR -> 1, 4, 2, 3
 				dpad_map = {0: 1, 1: 4, 2: 2, 3: 3}
-				for btn, player_num in dpad_map.iteritems():
-					if dpad[btn]:
-						self.player_num = player_num
+				for button, player_number in dpad_map.iteritems():
+					if dpad[button]:
+						self.player_number = player_number
 						break
 				self.write_player_num()
 
@@ -138,7 +153,7 @@ class XBoxController(InputDevice):
 			return [up, down, left, right]
 		else:
 			buttons = [13, 14, 11, 12]
-			return [self.joystick.get_button(btn) for btn in buttons]
+			return [bool(self.joystick.get_button(btn)) for btn in buttons]
 
 class PS3Controller(InputDevice):
 	#         USB                                Bluetooth
@@ -172,53 +187,28 @@ class PS3Controller(InputDevice):
 
 	def get_dpad(self):
 		buttons = [4, 6, 7, 5]
-		return [self.joystick.get_button(btn) for btn in buttons]
+		return [bool(self.joystick.get_button(btn)) for btn in buttons]
 
 	def write_player_num(self):
-		root_dir = '/sys/class/input/js{}/device'.format(self.device_number)
-		device_dir = os.path.join(root_dir, 'device')
-		device_id = os.path.basename(os.path.realpath(device_dir))
-		leds_dir = os.path.join(device_dir, 'leds')
-
-		if 0 < self.player_number <= 4:
-			mask = 1 << (self.player_number - 1)
-		else:
-			mask = self.player_number
-		for i in range(0, 4):
-			led_path = os.path.join(leds_dir, '{}::sony{}'.format(device_id, i + 1), 'brightness')
-			with open(led_path, 'w') as f:
-				f.write('1' if (1 << i) & mask else '0')
-
-	@staticmethod
-	def get_player_num(joystick):
-		dpad_map = {
-			4: 1, # up
-			6: 4,  # down
-			7: 2, # left
-			5: 3, # right
-		}
-		player_num = 0
-		for btn, num in dpad_map.iteritems():
-			if joystick.get_button(btn):
-				player_num = num
-				break
-		return player_num
-
-	@staticmethod
-	def set_player_num_static(dev, num):
-		print(dev, num)
-		root_dir = '/sys/class/input/js{}/device'.format(dev)
-		device_dir = os.path.join(root_dir, 'device')
-		leds_dir = os.path.join(root_dir, 'device/leds')
-		device_id = os.path.basename(os.path.realpath(device_dir))
-
-		if 0 < num <= 4:
-			mask = 1 << (num - 1)
-		else:
-			mask = num
-		for i in range(1, 5):
-			led_path = os.path.join(leds_dir, '{}::sony{}'.format(device_id, i), 'brightness')
-			with open(led_path, 'w') as f:
-				f.write('1' if (1 << (i - 1)) & mask else '0')
+		subprocess.Popen(['sixled', '/sys/class/input/js{}'.format(self.device_number), str(self.player_number)])
+		# if 0 < self.player_number <= 4:
+		# 	mask = 1 << (self.player_number - 1)
+		# else:
+		# 	mask = self.player_number
+		# c = pyudev.Context()
+		# d = pyudev.Device.from_name(c, 'input', 'js{}'.format(self.device_number))
+		# hid_parent = d.find_parent('hid')
+		# leds = pyudev.list_devices(parent=hid_parent, subsystem='leds')
+		# for led in leds:
+		# 	i = int(led.sys_name[-1])
+		# 	with open(os.path.join(led.sys_path, 'brightness'), 'w') as f:
+		# 		f.write('1' if (1 << i) & mask else '0')
+		# device_dir = '/sys/class/input/js{}/device/device'.format(self.device_number)
+		# device_id = os.path.basename(os.path.realpath(device_dir))
+		# leds_dir = os.path.join(device_dir, 'leds')
+		# for i in range(0, 4):
+		# 	led_path = os.path.join(leds_dir, '{}::sony{}'.format(device_id, i + 1), 'brightness')
+		# 	with open(led_path, 'w') as f:
+		# 		f.write('1' if (1 << i) & mask else '0')
 
 devices = [XBoxController, PS3Controller]
