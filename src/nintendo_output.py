@@ -64,7 +64,7 @@ class SnesControllerMux:
 
 	def toggle_multitap(self):
 		self.multitap = not self.multitap
-		self.write(0xFF, 0, 1 if self.multitap else 0)
+		self.write(0xFF, 0x01, 1 if self.multitap else 0)
 
 if __name__ == '__main__':
 	#test = SnesMultitap(10, 9, 11, 25, 8)
