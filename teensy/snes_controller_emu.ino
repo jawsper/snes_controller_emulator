@@ -13,13 +13,16 @@
 #define PIN_LED 13
 
 #define BUTTON_MASK 0xFFF0
+#define CLOCK_MAX 16
 
-volatile uint16_t buttons[5] = { 0, 0, 0, 0, 0 };//~BUTTON_MASK;
-volatile uint16_t bits[5] = { 0, 0, 0, 0, 0 };
+volatile int8_t clock_pulses[2] = { -1, -1 };
 
-#define MULTITAP 1
+volatile uint32_t buttons[5] = { 0, 0, 0, 0, 0 };//~BUTTON_MASK;
+volatile uint32_t bits[5] = { 0, 0, 0, 0, 0 };
+
+#define MULTITAP
 #ifdef MULTITAP
-volatile bool multitap = true;
+volatile bool multitap = false;
 #endif
 
 void setup() {
@@ -49,13 +52,15 @@ void setup() {
 	// digitalWrite(PIN_2_PP, HIGH);
 #endif
 
-	// enable interrupts for port 1
-	attachInterrupt(PIN_2_LATCH, isr_on_1_latch, CHANGE);
-	// attachInterrupt(PIN_1_LATCH, isr_on_1_latch_falling, FALLING);
-	attachInterrupt(PIN_2_CLOCK, isr_on_1_clock, RISING);
-
 #ifdef MULTITAP
+	attachInterrupt(PIN_2_LATCH, isr_on_1_latch, CHANGE);
+	attachInterrupt(PIN_2_CLOCK, isr_on_clock, RISING);
+
 	attachInterrupt(PIN_2_PP, isr_on_pp, FALLING);
+#else
+	// enable interrupts for port 1
+	attachInterrupt(PIN_1_LATCH, isr_on_1_latch, CHANGE);
+	attachInterrupt(PIN_1_CLOCK, isr_on_clock, RISING);
 #endif
 
 	// enable interrupts for port 2
@@ -69,19 +74,39 @@ void loop()
 {
 	if(Serial.available() > 2)
 	{
-		uint8_t controller = Serial.read();
+		uint8_t command = Serial.read();
 		uint8_t high = Serial.read();
 		uint8_t low = Serial.read();
-		// special command
 #ifdef MULTITAP
-		if(controller == 0xFF)
+		// special command
+		if(command == 0xFF)
 		{
-			multitap = low == 1 ? true : false;
+			switch(high)
+			{
+				case 1: // multitap
+					multitap = low == 1 ? true : false;
+					break;
+				case 2:
+					switch(low)
+					{
+						case 1:
+							// one only
+							break;
+						case 2:
+							// two only
+							break;
+						case 3:
+							// more than 2
+							break;
+					}
+					break;
+			}
 		}
-		else //if(controller < 5)
+		else
 #endif
+		if(command >= 0 && command <= 5)
 		{
-			buttons[controller] = ((high << 8) | low) & BUTTON_MASK;			
+			buttons[command - 1] = ((high << 8) | low) & BUTTON_MASK;			
 		}
 	}
 }
@@ -100,39 +125,26 @@ void isr_on_1_latch()
 
 void isr_on_1_latch_falling()
 {
+	clock_pulses[0] = 0;
+	clock_pulses[1] = 0;
+
 	bits[0] = 0x8000;
 	bits[1] = 0x8000;
 #ifdef MULTITAP
 	bits[2] = 0x8000;
-	// if(multitap)
-	// {
-	// 	digitalWrite(PIN_2_DATA1, LOW);
-	// }
+	bits[3] = 0x8000;
+	bits[4] = 0x8000;
 #endif
-	on_1_clock();
+	on_clock();
 }
-// void isr_on_2_latch()
-// {
-// 	// if(digitalRead(PIN_2_LATCH) == HIGH)
-// 	// {
-// 		bits[1] = 0x8000;
-// 	// 	if(multitap)
-// 	// 	{
-// 	// 		digitalWrite(PIN_2_DATA1, LOW);
-// 	// 		for(int i = 2; i < 5; i++) bits[i] = 0x8000;
-// 	// 	}
-// 	// }
-// 	// else
-// 	// {
-// 	// 	if(multitap) digitalWrite(PIN_2_DATA1, HIGH);
-// 		on_2_clock();
-// 	// }
-// }
 
 void isr_on_1_latch_rising()
 {
-	if(!multitap) return;
-	digitalWrite(PIN_2_DATA1, LOW);
+	set_output(PIN_1_DATA0, 0, 0x8000);
+	set_output(PIN_2_DATA0, 1, 0x8000);
+#ifdef MULTITAP
+	if(multitap) digitalWrite(PIN_2_DATA1, LOW);
+#endif
 }
 
 #ifdef MULTITAP
@@ -141,93 +153,81 @@ void isr_on_pp()
 {
 	if(!multitap) return;
 	bits[3] = 0x8000;
-	set_output(PIN_2_DATA0, 3);
 	bits[4] = 0x8000;
-	on_1_clock();
+	clock_pulses[1] = 0;
+	on_clock();
 }
 #endif
 
-void isr_on_1_clock()
+void isr_on_clock()
 {
 	if(digitalRead(PIN_1_LATCH) == HIGH) return;
-	on_1_clock();
-}
-// void isr_on_2_clock()
-// {
-// 	if(digitalRead(PIN_2_LATCH) == HIGH) return;
-// 	on_2_clock();
-// }
 
-inline void on_1_clock()
+	bool more1 = clock_finish(PIN_1_DATA0, 0);
+	bool more2 = clock_finish(PIN_2_DATA0, 1);
+	if(more1 || more2)
+		on_clock();
+}
+
+inline bool clock_finish(uint8_t pin, uint8_t port)
+{
+	if(clock_pulses[port] >= 0 && clock_pulses[port] >= CLOCK_MAX)
+	{
+		digitalWrite(pin, LOW);
+		return false;
+	}
+	return true;
+}
+
+inline void on_clock()
 {
 	set_output(PIN_1_DATA0, 0);
 	bits[0] >>= 1;
 
 #ifdef MULTITAP
-	uint8_t data0, data1;
-	if(!multitap || digitalRead(PIN_2_PP) == HIGH)
+	if(multitap)
 	{
-		data0 = 1;
-		data1 = 2;
+		uint8_t data0, data1;
+
+		bool pp_low = digitalRead(PIN_2_PP) == LOW;
+		bool pp = multitap && pp_low;
+
+		if(pp)
+		{
+			data0 = 3;
+			data1 = 4;
+		}
+		else
+		{
+			data0 = 1;
+			data1 = 2;
+		}
+
+		set_output(PIN_2_DATA0, data0);
+		bits[data0] >>= 1;
+		if(digitalRead(PIN_1_LATCH) == LOW)
+		{
+			set_output(PIN_2_DATA1, data1);
+			bits[data1] >>= 1;
+		}
 	}
 	else
-	{
-		data0 = 3;
-		data1 = 4;
-	}
-
-	set_output(PIN_2_DATA0, data0);
-	bits[data0] >>= 1;
-	// if(multitap && data0 == 1 && bits[data0] == 0)
-	// {
-	// 	bits[3] = 0x8000;
-	// 	set_output(PIN_2_DATA0, 3);
-	// }
-	if(data1 != 2 || digitalRead(PIN_1_LATCH) == LOW)
-	{
-		set_output(PIN_2_DATA1, data1);
-		bits[data1] >>= 1;
-	}
-
-#else
-	set_output(PIN_2_DATA0, 1);
-	bits[1] >>= 1;
 #endif
-}
+	{
+		set_output(PIN_2_DATA0, 1);
+		bits[1] >>= 1;
+	}
 
-// inline void on_2_clock()
-// {
-// 	// if(multitap) digitalWrite(PIN_2_DATA1, HIGH);
-// 	// if(multitap)
-// 	// {
-// 	// 	uint8_t data0, data1;
-// 	// 	if(digitalRead(PIN_2_PP) == HIGH)
-// 	// 	{
-// 	// 		data0 = 1;
-// 	// 		data1 = 2;
-// 	// 	}
-// 	// 	else
-// 	// 	{
-// 	// 		data0 = 3;
-// 	// 		data1 = 4;
-// 	// 	}
-// 	// 	if(bits[data0] == 0 || bits[data1] == 0) return;
-// 	// 	set_output(PIN_2_DATA0, data0);
-// 	// 	set_output(PIN_2_DATA1, data1);
-// 	// 	bits[data0] >>= 1;
-// 	// 	bits[data1] >>= 1;
-// 	// }
-// 	// else
-// 	// {
-// 		if(bits[1] == 0) return;
-// 		set_output(PIN_2_DATA0, 1);
-// 		bits[1] >>= 1;
-// 	// }
-// 	// on_clock(1);
-// }
+	clock_pulses[0]++;
+	clock_pulses[1]++;
+}
 
 inline void set_output(uint8_t pin, uint8_t port)
 {
-	uint16_t output = buttons[port] & bits[port];
+	set_output(pin, port, bits[port]);
+}
+inline void set_output(uint8_t pin, uint8_t port, uint32_t bits)
+{
+	uint16_t output = buttons[port] & bits;
 	digitalWrite(pin, output != 0 ? LOW : HIGH);
 }
