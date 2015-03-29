@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 
 import pygame
 
@@ -6,29 +6,20 @@ from controller_input import InputDevice
 from nintendo_output import SnesControllerMux
 
 class Main:
-	def joystick_detect(self):
-		self.joystick = {}
-		for i in range(pygame.joystick.get_count()):
-			self.joystick[i] = pygame.joystick.Joystick(i)
-			self.joystick[i].init()
-
 	def joystick_loop(self):
 		# main loop
-		try:
-			done = False
-			while not done:
+		while not self.done:
+			try:
 				event = pygame.event.wait()
 				if event.type == pygame.QUIT:
-					done = True
+					self.done = True
 				elif event.type in (pygame.JOYAXISMOTION, pygame.JOYBALLMOTION, pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP, pygame.JOYHATMOTION):
 					if event.joy in self.inputs:
 						self.inputs[event.joy].event(event)
-		except KeyboardInterrupt:
-			pass
-		finally:
-			for stick in self.joystick.itervalues():
-				stick.quit()
-			pygame.joystick.quit()
+				else:
+					print(event.type)
+			except KeyboardInterrupt:
+				self.done = True
 
 
 	def main(self):
@@ -36,22 +27,30 @@ class Main:
 		self.output = SnesControllerMux(sys.argv[1] if len(sys.argv) > 1 else None)
 
 		pygame.init()
-		self.joystick_detect()
 
-		self.inputs = {}
-		self.inputs_old = {}
-		if len(self.joystick) == 0:
-			print('No joysticks found!')
-			return
-		for i in range(0, len(self.joystick)):
-			self.inputs[i] = InputDevice.get(self.joystick[i].get_name())(i, self.joystick[0], self.output)
-		print(self.inputs)
+		self.done = False
+		while not self.done:
+			pygame.joystick.init()
 
-		self.output.enable()
+			if pygame.joystick.get_count() == 0:
+				print('No joysticks found!')
+				return
+			self.inputs = {}
+			for i in range(pygame.joystick.get_count()):
+				joystick = pygame.joystick.Joystick(i)
+				joystick.init()
+				self.inputs[i] = InputDevice.get(joystick.get_name())(i, joystick, self.output)
+			print(self.inputs)
 
-		self.joystick_loop()
+			self.output.enable()
 
-		self.output.disable()
+			self.joystick_loop()
+
+			self.output.disable()
+
+			pygame.joystick.quit()
+
+
 
 if __name__ == '__main__':
 	Main().main()
