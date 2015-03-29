@@ -21,8 +21,7 @@ class InputDevice:
 	axis_map = {}
 	hat_map = {}
 
-	special_button_down = False
-	special_button_released = False
+	control_mode = False
 
 	def __init__(self, device_number, joystick, output):
 		self.device_number = device_number
@@ -39,7 +38,8 @@ class InputDevice:
 
 	def event(self, ev):
 		if ev.type == pygame.JOYAXISMOTION:
-			if self.special_button_down:
+			# return
+			if self.control_mode:
 				return
 			if ev.axis in self.axis_map:
 				val = self.joystick.get_axis(ev.axis)
@@ -58,14 +58,11 @@ class InputDevice:
 				button = self.button_map[ev.button]
 				down = ev.type == pygame.JOYBUTTONDOWN
 				if button < 0:
-					self.special_button(button, down)
-					self.special_button_down = down
-					self.special_button_released = not down
-				elif self.special_button_down:
-					self.special_button(-1, True)
-				elif self.special_button_released:
-					self.special_button_released = False
-				elif not self.special_button_released:
+					if down:
+						self.control_mode = not self.control_mode
+				elif self.control_mode:
+					self.control_button(button, down)
+				else:
 					self.button(button, down)
 			# else:
 			# 	print('Unknown button {}: {}'.format(ev.button, 'down' if ev.type == pygame.JOYBUTTONDOWN else 'up'))
@@ -74,30 +71,33 @@ class InputDevice:
 			# elif ev.type == pygame.JOYBUTTONUP:
 			# 	print('JOYBUTTONUP: {} {}'.format(ev.joy, ev.button))
 		elif ev.type == pygame.JOYHATMOTION:
-			if self.special_button_down:
+			if self.control_mode:
+				self.control_mode(0, False)
 				return
-			if self.special_button_released:
-				self.special_button_released = False
-				return
-			# print('JOYHATMOTION: {} {}: {}'.format(ev.joy, ev.hat, (x, y)))
 			if ev.hat in self.hat_map:
 				x, y = self.joystick.get_hat(ev.hat)
-
+				print('JOYHATMOTION: {} {}: {}'.format(ev.joy, ev.hat, (x, y)))
 				state = [y > 0, y < 0, x < 0, x > 0]
 				for i in range(4):
 					self.button(self.hat_map[ev.hat][i], state[i])
 
-	def special_button(self, button_id, down):
-		if button_id == -1:
-			if not down:
-				dpad = self.get_dpad()
-				# UDLR -> 1, 4, 2, 3
-				dpad_map = {0: 1, 1: 4, 2: 2, 3: 3}
-				for button, player_number in dpad_map.iteritems():
-					if dpad[button]:
-						self.player_number = player_number
-						break
-				self.write_player_num()
+	def control_button(self, button_id, down):
+		if not down:
+			return
+
+		dpad = self.get_dpad()
+		if True in dpad:
+			# UDLR -> 1, 3, 2, 4
+			dpad_map = {0: 1, 1: 3, 2: 2, 3: 4}
+			for button, player_number in dpad_map.items():
+				if dpad[button]:
+					self.player_number = player_number
+					break
+			self.write_player_num()
+			return
+		# print(button_id)
+		if button_id == SnesController.BUTTON_B:
+			self.output.toggle_multitap()
 
 	def __repr__(self):
 		return '{}({}, {})'.format(self.__class__.__name__, self.device_number, self.joystick.get_name())
@@ -107,11 +107,16 @@ class InputDevice:
 		for device in devices:
 			if name in device.names:
 				return device
+		print('Unknown: {}'.format(name))
 		# return InputDevice
 
 class XBoxController(InputDevice):
-	#         xpad                       xboxdrv
-	names = ("Microsoft X-Box 360 pad", "Xbox Gamepad (userspace driver)", "Xbox 360 Wireless Receiver")
+	names = (
+		"Microsoft X-Box 360 pad", 			 # xpad
+		"Xbox Gamepad (userspace driver)",	 # xboxdrv
+		"Xbox 360 Wireless Receiver",
+		"Xbox 360 Wireless Receiver (XBOX)", # xpad
+	)
 	button_map = {
 		0: SnesController.BUTTON_B,
 		1: SnesController.BUTTON_A,
