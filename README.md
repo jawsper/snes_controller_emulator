@@ -4,7 +4,7 @@ Emulate a SNES controller and multitap using a Teensy 3.1.
 Initial version supports 3 controllers perfectly, and the 4th (and probably 5th) have a kinda functioning B button.
 
 ## Hooking it up
-Requires a Teensy 3.1 (3.0 is not recommended because it's not 5V tolerant, but it might work since all the outputs seem to be open collector).
+Requires a Teensy 3.1 (do not use 3.0, the PP pin is NOT open-collector).
 
 Hook up from Teensy pin 2 up to pin 9 in this order:
 * Port 1:
@@ -33,10 +33,10 @@ This requires python 3 with pygame.
 Dependencies are: pygame, pyserial, (pyudev)
 Run:
 ```
-python2 main.py /dev/ttyACM[0-9]
+python2 main.py
 ```
-where you add the number your Teensy is connected to at the end.
+Teensy and joysticks will be auto-detected.
 
-When you press the centre button on the controller, you switch to "control mode", after which you can switch player with the DPAD (1, 2, 3, 4 -> U L D R); and toggle multitap with SNES B.
+When you press the centre button on the controller, you switch to "control mode", after which you can switch player with the DPAD (1, 2, 3, 4 -> U L D R); and toggle multitap on/off with SNES B.
 
 It supports Dualshock 3 and Xbox 360 controllers currently.
