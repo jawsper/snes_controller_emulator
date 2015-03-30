@@ -53,15 +53,15 @@ void setup() {
 #endif
 
 #ifdef MULTITAP
-	attachInterrupt(PIN_2_LATCH, isr_on_1_latch, CHANGE);
-	attachInterrupt(PIN_2_CLOCK, isr_on_clock, RISING);
+	// attachInterrupt(PIN_2_LATCH, isr_on_1_latch, CHANGE);
+	attachInterrupt(PIN_2_CLOCK, isr_on_clock_2, RISING);
 
 	attachInterrupt(PIN_2_PP, isr_on_pp, FALLING);
-#else
+#endif
 	// enable interrupts for port 1
 	attachInterrupt(PIN_1_LATCH, isr_on_1_latch, CHANGE);
 	attachInterrupt(PIN_1_CLOCK, isr_on_clock, RISING);
-#endif
+// #endif
 
 	// enable interrupts for port 2
 	// attachInterrupt(PIN_2_LATCH, isr_on_2_latch, CHANGE);
@@ -166,6 +166,14 @@ void isr_on_clock()
 	bool more1 = clock_finish(PIN_1_DATA0, 0);
 	bool more2 = clock_finish(PIN_2_DATA0, 1);
 	if(more1 || more2)
+		on_clock();
+}
+
+void isr_on_clock_2()
+{
+	if(digitalRead(PIN_2_PP) == HIGH) return;
+	bool more2 = clock_finish(PIN_2_DATA0, 1);
+	if(more2)
 		on_clock();
 }
 

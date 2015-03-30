@@ -115,7 +115,7 @@ class Main:
 				joystick = pygame.joystick.Joystick(i)
 				joystick.init()
 				self.inputs[i] = InputDevice.get(joystick.get_name())(i, joystick, self.output)
-			print(self.inputs)
+			print('Inputs:', self.inputs)
 
 			self.output.enable()
 

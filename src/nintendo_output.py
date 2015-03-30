@@ -38,10 +38,14 @@ class SnesControllerMux:
 			self.enable()
 
 	def enable(self):
-		self.serial = serial.Serial(self.port, 115200)
+		if self.port:
+			if self.serial:
+				self.disable()
+			self.serial = serial.Serial(self.port, 115200)
 	def disable(self):
-		self.serial.close()
-		self.serial = None
+		if self.serial:
+			self.serial.close()
+			self.serial = None
 
 	def button(self, controller_id, button_id, value):
 		if not controller_id in self.buttons:
