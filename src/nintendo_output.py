@@ -29,15 +29,26 @@ class SnesControllerMux:
 		self.multitap = False
 		self.serial = None
 
+	def set_port(self, port):
+		print('set_port:', port)
+		if self.serial:
+			self.disable()
+		if port is not None:
+			self.port = port
+			self.enable()
+
 	def enable(self):
 		self.serial = serial.Serial(self.port, 115200)
 	def disable(self):
 		self.serial.close()
+		self.serial = None
 
 	def button(self, controller_id, button_id, value):
 		if not controller_id in self.buttons:
 			self.buttons[controller_id] = [False] * SnesController.BIT_COUNT
 
+		if self.buttons[controller_id][button_id] == value:
+			return
 		self.buttons[controller_id][button_id] = value
 
 		# print('button({}, {}, {})'.format(controller_id, button_id, value))
@@ -58,7 +69,7 @@ class SnesControllerMux:
 
 	def write(self, command, h, l):
 		val = bytearray([command & 0xFF, h & 0xFF, l & 0xFF])
-		print(repr(val))
+		# print(repr(val))
 		if self.serial and self.serial.isOpen():
 			self.serial.write(val)
 
