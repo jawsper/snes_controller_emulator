@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+# set SDL to dummy videodriver so it can run fully headless
+import os
+os.environ['SDL_VIDEODRIVER'] = 'dummy'
 import pygame
 
 from controller_input import InputDevice
