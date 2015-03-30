@@ -29,13 +29,14 @@ Due to the ground of port 1 being connected you don't have to connect it and thu
 Everything else is handled by the Teensy itself, including the required pull-ups.
 
 ## PC Side
-This requires python 2 with pygame.
+This requires python 3 with pygame.
+Dependencies are: pygame, pyserial, (pyudev)
 Run:
 ```
 python2 main.py /dev/ttyACM[0-9]
 ```
 where you add the number your Teensy is connected to at the end.
 
-Currently there's a nasty trick in there where pressing the PS button on a Sixaxis will toggle joysticks 0 and 1 to 2 and 3. This is only for testing purposes.
+When you press the centre button on the controller, you switch to "control mode", after which you can switch player with the DPAD (1, 2, 3, 4 -> U L D R); and toggle multitap with SNES B.
 
-It supports Sixaxis and Xbox 360 controllers currently.
+It supports Dualshock 3 and Xbox 360 controllers currently.
