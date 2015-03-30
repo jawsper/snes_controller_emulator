@@ -72,11 +72,11 @@ class InputDevice:
 			# 	print('JOYBUTTONUP: {} {}'.format(ev.joy, ev.button))
 		elif ev.type == pygame.JOYHATMOTION:
 			if self.control_mode:
-				self.control_mode(0, False)
+				self.control_button(None, True)
 				return
 			if ev.hat in self.hat_map:
 				x, y = self.joystick.get_hat(ev.hat)
-				print('JOYHATMOTION: {} {}: {}'.format(ev.joy, ev.hat, (x, y)))
+				# print('JOYHATMOTION: {} {}: {}'.format(ev.joy, ev.hat, (x, y)))
 				state = [y > 0, y < 0, x < 0, x > 0]
 				for i in range(4):
 					self.button(self.hat_map[ev.hat][i], state[i])
