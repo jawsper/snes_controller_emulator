@@ -4,8 +4,8 @@
 import os
 os.environ['SDL_VIDEODRIVER'] = 'dummy'
 import pygame
-
 import pyudev
+import signal
 
 from controller_input import InputDevice
 from nintendo_output import SnesControllerMux
@@ -63,23 +63,29 @@ class JoystickMonitor:
 		self.observer.start()
 
 class Main:
+	def sigint_handler(self, signo, frame):
+		self.done = True
+		pygame.event.post(pygame.event.Event(pygame.USEREVENT, action='kill'))
+
 	def joystick_loop(self):
 		# main loop
+		clock = pygame.time.Clock()
 		while not self.done and not self.joystick_changed:
-			try:
-				event = pygame.event.wait()
+			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
-					print('pygame_quit')
+					# print('pygame_quit')
 					self.done = True
 				elif event.type in (pygame.JOYAXISMOTION, pygame.JOYBALLMOTION, pygame.JOYBUTTONDOWN, pygame.JOYBUTTONUP, pygame.JOYHATMOTION):
 					if event.joy in self.inputs:
 						self.inputs[event.joy].event(event)
 				elif event.type == pygame.USEREVENT:
-					print('user_event')
+					pass # accept it and go on (probably going to exit the loop)
+					# print('user_event')
+					# if hasattr(event, 'action'):
+					# 	print(event.action)
 				else:
 					print(event.type)
-			except KeyboardInterrupt:
-				self.done = True
+				clock.tick(60)
 		self.joystick_changed = False
 
 	def on_teensy(self, action, device):
@@ -94,7 +100,7 @@ class Main:
 		# print('joystick:', action, device)
 		if not self.joystick_changed:
 			self.joystick_changed = True
-			pygame.event.post(pygame.event.Event(pygame.USEREVENT))
+			pygame.event.post(pygame.event.Event(pygame.USEREVENT, action='joystick_changed'))
 
 	def main(self):
 		import sys
@@ -104,6 +110,8 @@ class Main:
 		self.joystick_monitor = JoystickMonitor(self.on_joystick)
 
 		pygame.init()
+
+		signal.signal(signal.SIGINT, self.sigint_handler)
 
 		self.done = False
 		self.joystick_changed = False
