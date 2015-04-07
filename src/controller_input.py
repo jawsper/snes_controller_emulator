@@ -26,6 +26,7 @@ class InputDevice:
 	def __init__(self, device_number, joystick, output):
 		self.device_number = device_number
 		self.player_number = device_number + 1
+		self.write_player_num()
 		self.joystick = joystick
 		self.output = output
 	def get_dpad(self):
@@ -159,6 +160,8 @@ class XBoxController(InputDevice):
 		else:
 			buttons = [13, 14, 11, 12]
 			return [bool(self.joystick.get_button(btn)) for btn in buttons]
+	def write_player_num(self):
+		subprocess.Popen(['padled', '/sys/class/input/js{}'.format(self.device_number), str(self.player_number)])
 
 class PS3Controller(InputDevice):
 	#         USB                                Bluetooth
@@ -195,7 +198,7 @@ class PS3Controller(InputDevice):
 		return [bool(self.joystick.get_button(btn)) for btn in buttons]
 
 	def write_player_num(self):
-		subprocess.Popen(['sixled', '/sys/class/input/js{}'.format(self.device_number), str(self.player_number)])
+		subprocess.Popen(['padled', '/sys/class/input/js{}'.format(self.device_number), str(self.player_number)])
 		# if 0 < self.player_number <= 4:
 		# 	mask = 1 << (self.player_number - 1)
 		# else:
