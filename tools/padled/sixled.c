@@ -24,30 +24,30 @@
  *
  */
 
-#include <libudev.h>
-#include <unistd.h>
 #include <errno.h>
-#include <string.h>
+#include <error.h>
+#include <fcntl.h>
+#include <libudev.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <stdbool.h>
-#include <linux/limits.h>
-#include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <linux/limits.h>
 
-static struct udev *ctx = NULL;
-
+extern struct udev *ctx;
 
 struct leds_data {
 	char *syspath_prefix;
 	uint8_t bitmap;
-};
+} led_data;
 
-static bool set_leds_sysfs(struct leds_data *data)
+static bool set_leds_sysfs()
 {
 	int i;
 
-	if (!data->syspath_prefix)
+	if (!led_data.syspath_prefix)
 		return false;
 
 	/* start from 1, LED0 is never used */
@@ -58,16 +58,16 @@ static bool set_leds_sysfs(struct leds_data *data)
 		int ret;
 
 		snprintf(path, PATH_MAX, "%s%d/brightness",
-						data->syspath_prefix, i);
+						led_data.syspath_prefix, i);
 
 		fd = open(path, O_WRONLY);
 		if (fd < 0) {
-			error("sixaxis: cannot open %s (%s)", path,
+			error(0, 0, "sixaxis: cannot open %s (%s)", path,
 							strerror(errno));
 			return false;
 		}
 
-		buf[0] = '0' + !!(data->bitmap & (1 << i));
+		buf[0] = '0' + !!(led_data.bitmap & (1 << i));
 		ret = write(fd, buf, sizeof(buf));
 		close(fd);
 		if (ret != sizeof(buf))
@@ -77,13 +77,12 @@ static bool set_leds_sysfs(struct leds_data *data)
 	return true;
 }
 
-static char *get_leds_syspath_prefix(struct udev_device *udevice)
+static bool get_leds_syspath_prefix(struct udev_device *udevice)
 {
 	struct udev_list_entry *dev_list_entry;
 	struct udev_enumerate *enumerate;
 	struct udev_device *hid_parent;
 	const char *syspath;
-	char *syspath_prefix;
 
 	hid_parent = udev_device_get_parent_with_subsystem_devtype(udevice,
 								"hid", NULL);
@@ -95,7 +94,7 @@ static char *get_leds_syspath_prefix(struct udev_device *udevice)
 
 	dev_list_entry = udev_enumerate_get_list_entry(enumerate);
 	if (!dev_list_entry) {
-		syspath_prefix = NULL;
+		led_data.syspath_prefix = NULL;
 		goto out;
 	}
 
@@ -108,16 +107,21 @@ static char *get_leds_syspath_prefix(struct udev_device *udevice)
 	 * Subtracting 1 here means assuming that the LED number is a single
 	 * digit, this is safe as the kernel driver only exposes 4 LEDs.
 	 */
-	syspath_prefix = strndup(syspath, strlen(syspath) - 1);
+	led_data.syspath_prefix = strndup(syspath, strlen(syspath) - 1);
 
 out:
 	udev_enumerate_unref(enumerate);
 
-	return syspath_prefix;
+	return led_data.syspath_prefix != NULL ? true : false;
 }
 
-static uint8_t calc_leds_bitmap(int number)
+static uint8_t calc_leds_bitmap(int number, bool raw)
 {
+	if(raw)
+	{
+		return (number & 0x0F) << 1;
+	}
+
 	uint8_t bitmap = 0;
 
 	/* TODO we could support up to 10 (1 + 2 + 3 + 4) */
@@ -134,42 +138,12 @@ static uint8_t calc_leds_bitmap(int number)
 	return bitmap;
 }
 
-int main(int argc, char** argv)
+bool set_sixaxis_led(struct udev_device *device, int leds, bool raw)
 {
-	if(argc != 3) return -1;
-
-	char* dev = argv[1];
-	int leds = atoi(argv[2]);
-
-	ctx = udev_new();
-	if(!ctx) return -EIO;
-
-	struct udev_device *udevice = udev_device_new_from_syspath(ctx, dev);
-	if(!udevice) return -EIO;
-
-	struct leds_data *data;
-
-	data = malloc(sizeof(*data));
-	if (!data)
-		return -1;
-
-	data->bitmap = calc_leds_bitmap(leds);
-	if (data->bitmap == 0) {
-		// leds_data_destroy(data);
-		return -1;
-	}
-
-	/*
-	 * It's OK if this fails, set_leds_hidraw() will be used in
-	 * case data->syspath_prefix is NULL.
-	 */
-	data->syspath_prefix = get_leds_syspath_prefix(udevice);
-
-
-	set_leds_sysfs(data);
-
-
-	udev_unref(ctx);
-
-	return 0;
+	led_data.bitmap = calc_leds_bitmap(leds, raw);
+	if(led_data.bitmap == 0)
+		return false;
+	if(get_leds_syspath_prefix(device))
+		return set_leds_sysfs();
+	return false;
 }
