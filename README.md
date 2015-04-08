@@ -29,8 +29,10 @@ Due to the ground of port 1 being connected you don't have to connect it and thu
 Everything else is handled by the Teensy itself, including the required pull-ups.
 
 ## PC Side
-This requires python 2/3 with pygame.
+This requires python (2 or 3).
+
 Dependencies are: pygame, pyserial, pyudev
+
 Run:
 ```
 python main.py
