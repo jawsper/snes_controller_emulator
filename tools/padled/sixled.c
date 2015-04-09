@@ -141,7 +141,7 @@ static uint8_t calc_leds_bitmap(int number, bool raw)
 bool set_sixaxis_led(struct udev_device *device, int leds, bool raw)
 {
 	led_data.bitmap = calc_leds_bitmap(leds, raw);
-	if(led_data.bitmap == 0)
+	if(!raw && led_data.bitmap == 0)
 		return false;
 	if(get_leds_syspath_prefix(device))
 		return set_leds_sysfs();
