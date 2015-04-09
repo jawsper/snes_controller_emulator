@@ -29,11 +29,13 @@ Due to the ground of port 1 being connected you don't have to connect it and thu
 Everything else is handled by the Teensy itself, including the required pull-ups.
 
 ## PC Side
-This requires python 3 with pygame.
-Dependencies are: pygame, pyserial, (pyudev)
+This requires python (2 or 3).
+
+Dependencies are: pygame, pyserial, pyudev
+
 Run:
 ```
-python2 main.py
+python main.py
 ```
 Teensy and joysticks will be auto-detected.
 
