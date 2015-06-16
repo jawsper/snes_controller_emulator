@@ -42,6 +42,7 @@ class SnesControllerMux:
 			if self.serial:
 				self.disable()
 			self.serial = serial.Serial(self.port, 115200)
+			self.write(0xFF, 0x00, 0x00)
 	def disable(self):
 		if self.serial:
 			self.serial.close()
