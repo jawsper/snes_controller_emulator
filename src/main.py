@@ -64,14 +64,17 @@ class JoystickMonitor:
 
 class Main:
 	def sigint_handler(self, signo, frame):
+		print('sigint')
 		self.done = True
 		pygame.event.post(pygame.event.Event(pygame.USEREVENT, action='kill'))
 
 	def joystick_loop(self):
 		# main loop
-		clock = pygame.time.Clock()
+		# clock = pygame.time.Clock()
 		while not self.done and not self.joystick_changed:
-			for event in pygame.event.get():
+			# for event in pygame.event.get():
+			if True:
+				event = pygame.event.wait()
 				if event.type == pygame.QUIT:
 					# print('pygame_quit')
 					self.done = True
@@ -85,7 +88,7 @@ class Main:
 					# 	print(event.action)
 				else:
 					print(event.type)
-				clock.tick(60)
+				# clock.tick(60)
 		self.joystick_changed = False
 
 	def on_teensy(self, action, device):
