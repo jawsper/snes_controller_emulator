@@ -25,7 +25,8 @@ volatile uint32_t bits[5] = { 0, 0, 0, 0, 0 };
 volatile bool multitap = false;
 #endif
 
-void setup() {
+void setup()
+{
 	pinMode(PIN_LED, OUTPUT);
 	digitalWrite(PIN_LED, HIGH);
 
@@ -33,22 +34,22 @@ void setup() {
 	pinMode(PIN_1_CLOCK, INPUT_PULLUP);
 	pinMode(PIN_1_LATCH, INPUT_PULLUP);
 	pinMode(PIN_1_DATA0, OUTPUT);
-	digitalWrite(PIN_1_CLOCK, HIGH);
-	digitalWrite(PIN_1_LATCH, HIGH);
-	digitalWrite(PIN_1_DATA0, HIGH);
+	digitalWriteFast(PIN_1_CLOCK, HIGH);
+	digitalWriteFast(PIN_1_LATCH, HIGH);
+	digitalWriteFast(PIN_1_DATA0, HIGH);
 
 	// setup pins for port 2
 	pinMode(PIN_2_CLOCK, INPUT_PULLUP);
 	pinMode(PIN_2_LATCH, INPUT_PULLUP);
 	pinMode(PIN_2_DATA0, OUTPUT);
-	digitalWrite(PIN_2_CLOCK, HIGH);
-	digitalWrite(PIN_2_LATCH, HIGH);
-	digitalWrite(PIN_2_DATA0, HIGH);
+	digitalWriteFast(PIN_2_CLOCK, HIGH);
+	digitalWriteFast(PIN_2_LATCH, HIGH);
+	digitalWriteFast(PIN_2_DATA0, HIGH);
 
 #ifdef MULTITAP
 	pinMode(PIN_2_DATA1, OUTPUT);
 	pinMode(PIN_2_PP, INPUT);
-	digitalWrite(PIN_2_DATA1, HIGH);
+	digitalWriteFast(PIN_2_DATA1, HIGH);
 	// digitalWrite(PIN_2_PP, HIGH);
 #endif
 
@@ -72,6 +73,17 @@ void setup() {
 
 void loop()
 {
+	// if(digitalReadFast(PIN_1_LATCH) == HIGH)
+	// {
+	// 	while(digitalReadFast(PIN_1_LATCH) == HIGH);
+	// 	for(int i = 0; i < 16; i++)
+	// 	{
+	// 		while(digitalReadFast(PIN_1_CLOCK) == HIGH);
+	// 		set_output(PIN_1_DATA0, 0);
+	// 		set_output(PIN_2_DATA0, 1);
+	// 		while(digitalReadFast(PIN_1_CLOCK) == LOW);
+	// 	}
+	// }
 	if(Serial.available() > 2)
 	{
 		uint8_t command = Serial.read();
@@ -83,9 +95,21 @@ void loop()
 		{
 			switch(high)
 			{
+				case 0: // connected
+					for(int i = 0; i < 3; i++)
+					{
+						digitalWrite(PIN_LED, LOW);
+						delay(250);
+						digitalWrite(PIN_LED, HIGH);
+						delay(250);
+					}
+					digitalWrite(PIN_LED, HIGH);
+					break;
+
 				case 1: // multitap
 					multitap = low == 1 ? true : false;
 					break;
+
 				case 2:
 					switch(low)
 					{
@@ -113,7 +137,7 @@ void loop()
 
 void isr_on_1_latch()
 {
-	if(digitalRead(PIN_1_LATCH) == HIGH)
+	if(digitalReadFast(PIN_1_LATCH) == HIGH)
 	{
 		isr_on_1_latch_rising();
 	}
@@ -143,7 +167,7 @@ void isr_on_1_latch_rising()
 	set_output(PIN_1_DATA0, 0, 0x8000);
 	set_output(PIN_2_DATA0, 1, 0x8000);
 #ifdef MULTITAP
-	if(multitap) digitalWrite(PIN_2_DATA1, LOW);
+	if(multitap) digitalWriteFast(PIN_2_DATA1, LOW);
 #endif
 }
 
@@ -161,7 +185,7 @@ void isr_on_pp()
 
 void isr_on_clock()
 {
-	if(digitalRead(PIN_1_LATCH) == HIGH) return;
+	if(digitalReadFast(PIN_1_LATCH) == HIGH) return;
 
 	bool more1 = clock_finish(PIN_1_DATA0, 0);
 	bool more2 = clock_finish(PIN_2_DATA0, 1);
@@ -171,7 +195,7 @@ void isr_on_clock()
 
 void isr_on_clock_2()
 {
-	if(digitalRead(PIN_2_PP) == HIGH) return;
+	if(digitalReadFast(PIN_2_PP) == HIGH) return;
 	bool more2 = clock_finish(PIN_2_DATA0, 1);
 	if(more2)
 		on_clock();
@@ -181,7 +205,7 @@ inline bool clock_finish(uint8_t pin, uint8_t port)
 {
 	if(clock_pulses[port] >= 0 && clock_pulses[port] >= CLOCK_MAX)
 	{
-		digitalWrite(pin, LOW);
+		digitalWriteFast(pin, LOW);
 		return false;
 	}
 	return true;
@@ -197,7 +221,7 @@ inline void on_clock()
 	{
 		uint8_t data0, data1;
 
-		bool pp_low = digitalRead(PIN_2_PP) == LOW;
+		bool pp_low = digitalReadFast(PIN_2_PP) == LOW;
 		bool pp = multitap && pp_low;
 
 		if(pp)
@@ -213,7 +237,7 @@ inline void on_clock()
 
 		set_output(PIN_2_DATA0, data0);
 		bits[data0] >>= 1;
-		if(digitalRead(PIN_1_LATCH) == LOW)
+		if(digitalReadFast(PIN_1_LATCH) == LOW)
 		{
 			set_output(PIN_2_DATA1, data1);
 			bits[data1] >>= 1;
@@ -237,5 +261,5 @@ inline void set_output(uint8_t pin, uint8_t port)
 inline void set_output(uint8_t pin, uint8_t port, uint32_t bits)
 {
 	uint16_t output = buttons[port] & bits;
-	digitalWrite(pin, output != 0 ? LOW : HIGH);
+	digitalWriteFast(pin, output != 0 ? LOW : HIGH);
 }
