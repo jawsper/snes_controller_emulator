@@ -31,10 +31,9 @@ class SnesControllerMux:
 
 	def set_port(self, port):
 		print('set_port:', port)
+		self.port = port
 		if self.serial:
 			self.disable()
-		if port is not None:
-			self.port = port
 			self.enable()
 
 	def enable(self):
@@ -42,7 +41,7 @@ class SnesControllerMux:
 			if self.serial:
 				self.disable()
 			self.serial = serial.Serial(self.port, 115200)
-			self.write(0xFF, 0x00, 0x00)
+			self.write(0xFF, 0x00, 3)
 	def disable(self):
 		if self.serial:
 			self.serial.close()
