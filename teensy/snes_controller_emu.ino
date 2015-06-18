@@ -96,12 +96,14 @@ void loop()
 			switch(high)
 			{
 				case 0: // connected
-					for(int i = 0; i < 3; i++)
+					if(low > 10) low = 10;
+					else if(low < 1) low = 1;
+					for(int i = 0; i < low; i++)
 					{
 						digitalWrite(PIN_LED, LOW);
-						delay(250);
+						delay(50);
 						digitalWrite(PIN_LED, HIGH);
-						delay(250);
+						delay(50);
 					}
 					digitalWrite(PIN_LED, HIGH);
 					break;
